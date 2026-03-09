@@ -1,8 +1,9 @@
 import asyncio
+import os
 
 import flet as ft
 
-from snackhub2.services.help_chat_service import get_help_reply
+from snackhub2.services.help_chat_service import AVAILABLE_CHAT_STYLES, get_help_reply
 
 
 def build_help_chat(page: ft.Page) -> ft.Control:
@@ -67,6 +68,7 @@ def build_help_chat(page: ft.Page) -> ft.Control:
                 user_text,
                 page.route or "/",
                 state["history"],
+                state.get("style", "slang"),
             )
         except Exception as exc:
             reply = f"Fehler beim Helfer-Chat: {exc}"
@@ -99,6 +101,25 @@ def build_help_chat(page: ft.Page) -> ft.Control:
         panel.visible = state["open"]
         chat_toggle_label.value = "x" if state["open"] else "Hilfe"
         safe_update()
+
+    def on_style_change(_):
+        selected = (style_dropdown.value or "slang").strip().lower()
+        if selected not in AVAILABLE_CHAT_STYLES:
+            selected = "slang"
+        state["style"] = selected
+        state["history"].append(
+            {
+                "role": "assistant",
+                "content": (
+                    f"Stil gesetzt auf {style_mapping.get(selected, selected)}. "
+                    "Frag mich was zu Voting, Shop oder Feedback."
+                ),
+            }
+        )
+        render_messages()
+        safe_update()
+
+    style_dropdown.on_select = on_style_change
 
     quick_row = ft.Row(
         controls=[
@@ -138,6 +159,13 @@ def build_help_chat(page: ft.Page) -> ft.Control:
                     "Frag nach Funktionen wie Voting, Shop, Feedback oder Vorbestellen.",
                     size=12,
                     color="#555555",
+                ),
+                ft.Row(
+                    controls=[
+                        ft.Text("Antwortstil:", size=12, color="#555555"),
+                        style_dropdown,
+                    ],
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
                 ),
                 quick_row,
                 ft.Container(
@@ -209,20 +237,64 @@ def _get_chat_state(page: ft.Page) -> dict:
             chat_state["open"] = False
         if "busy" not in chat_state:
             chat_state["busy"] = False
+        if "style" not in chat_state or chat_state["style"] not in AVAILABLE_CHAT_STYLES:
+            chat_state["style"] = _default_style()
         return chat_state
 
     chat_state = {
         "open": False,
         "busy": False,
+        "style": _default_style(),
         "history": [
             {
                 "role": "assistant",
-                "content": (
-                    "Willkommen bei SnackHub, wie kann ich dir helfen? "
-                    "Nenne z. B. 'Voting Funktionen'."
-                ),
+                "content": _initial_welcome(_default_style()),
             }
         ],
     }
     page.data["_help_chat"] = chat_state
     return chat_state
+
+
+def _default_style() -> str:
+    raw = (os.getenv("SNACKHUB_CHAT_STYLE") or "slang").strip().lower()
+    if raw in AVAILABLE_CHAT_STYLES:
+        return raw
+    return "slang"
+
+
+def _initial_welcome(style: str) -> str:
+    if style == "praesentation":
+        return (
+            "Willkommen zur SnackHub-Uebersicht. "
+            "Nenne z. B. 'Voting Funktionen'."
+        )
+    if style == "normal":
+        return (
+            "Willkommen bei SnackHub, wie kann ich dir helfen? "
+            "Nenne z. B. 'Voting Funktionen'."
+        )
+    return (
+        "Yo, willkommen bei SnackHub. "
+        "Nenne z. B. 'Voting Funktionen'."
+    )
+    style_mapping = {
+        "slang": "Slang",
+        "normal": "Normal",
+        "praesentation": "Praesentation",
+    }
+
+    style_dropdown = ft.Dropdown(
+        label="Stil",
+        width=145,
+        value=state.get("style", "slang"),
+        bgcolor="white",
+        border_radius=10,
+        border_color="#E0CFA0",
+        dense=True,
+        text_size=12,
+        options=[
+            ft.dropdown.Option(k, style_mapping.get(k, k.title()))
+            for k in AVAILABLE_CHAT_STYLES
+        ],
+    )

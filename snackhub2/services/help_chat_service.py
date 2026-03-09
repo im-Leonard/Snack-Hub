@@ -45,19 +45,60 @@ _ROUTE_TOPIC = {
     "/vorbestellungen_kantine": "vorbestellungen_kantine",
 }
 
-_OPENERS = [
-    "Willkommen bei SnackHub, wie kann ich dir helfen?",
-    "Hi, wobei brauchst du in SnackHub kurz Hilfe?",
-    "Klar, ich helfe dir direkt mit SnackHub.",
-]
+_STYLE_CONFIG = {
+    "slang": {
+        "label": "Slang",
+        "openers": [
+            "Yo, willkommen bei SnackHub. Was geht?",
+            "Hey, ich hab dich. Wobei brauchst du Hilfe?",
+            "Nice, frag einfach. Ich erklaer dir das fix.",
+        ],
+        "ollama_instruction": (
+            "Sprich locker mit leichtem Jugend-Slang, aber bleib klar und respektvoll. "
+            "Nutze kurze Saetze und konkrete Erklaerungen."
+        ),
+    },
+    "normal": {
+        "label": "Normal",
+        "openers": [
+            "Willkommen bei SnackHub, wie kann ich dir helfen?",
+            "Hi, wobei brauchst du kurz Hilfe?",
+            "Klar, ich helfe dir direkt mit SnackHub.",
+        ],
+        "ollama_instruction": (
+            "Antworte freundlich, sachlich und leicht verstaendlich in normalem Deutsch."
+        ),
+    },
+    "praesentation": {
+        "label": "Praesentation",
+        "openers": [
+            "Willkommen zur SnackHub-Uebersicht. Wie kann ich helfen?",
+            "Gern erklaere ich die Funktionen fuer eure Praesentation.",
+            "Lass uns die SnackHub-Funktionen kompakt durchgehen.",
+        ],
+        "ollama_instruction": (
+            "Antworte professionell, klar und praesentationstauglich. "
+            "Nenne wenn passend kurze Stichpunkte in einem Satzfluss."
+        ),
+    },
+}
+
+AVAILABLE_CHAT_STYLES = tuple(_STYLE_CONFIG.keys())
 
 
-def get_help_reply(user_message: str, route: str, history: list[dict] | None = None) -> str:
+def get_help_reply(
+    user_message: str,
+    route: str,
+    history: list[dict] | None = None,
+    style: str | None = None,
+) -> str:
     message = (user_message or "").strip()
-    if not message:
-        return "Willkommen bei SnackHub, wie kann ich dir helfen?"
+    style_key = _resolve_style(style)
 
-    local_hint = _build_local_help(message, route)
+    if not message:
+        return _pick_opener(style_key, route or "/")
+
+    local_hint = _build_local_help(message, route, style_key)
     ollama_answer, ollama_error = _call_ollama_help_api(
         model=_get_model(),
         base_url=_get_ollama_base_url(),
@@ -65,15 +106,16 @@ def get_help_reply(user_message: str, route: str, history: list[dict] | None = N
         route=route,
         local_hint=local_hint,
         history=history or [],
+        style_key=style_key,
     )
     if ollama_answer:
-        return f"{ollama_answer.strip()}\n\nQuelle: Ollama"
+        return f"{ollama_answer.strip()}\n\nQuelle: Ollama | Stil: {_style_label(style_key)}"
 
     reason = ollama_error or "Ollama nicht erreichbar"
-    return f"{local_hint}\n\nQuelle: Lokal ({reason})"
+    return f"{local_hint}\n\nQuelle: Lokal ({reason}) | Stil: {_style_label(style_key)}"
 
 
-def _build_local_help(user_message: str, route: str) -> str:
+def _build_local_help(user_message: str, route: str, style_key: str) -> str:
     normalized_message = _normalize(user_message)
     matched_topics: list[str] = []
 
@@ -87,7 +129,7 @@ def _build_local_help(user_message: str, route: str) -> str:
     if not matched_topics and route_topic:
         matched_topics.append(route_topic)
 
-    opener = _pick_opener(user_message + route)
+    opener = _pick_opener(style_key, user_message + route)
     if not matched_topics:
         return f"{opener} Nenne einfach ein Stichwort wie 'Voting Funktionen'."
 
@@ -113,6 +155,7 @@ def _call_ollama_help_api(
     route: str,
     local_hint: str,
     history: list[dict],
+    style_key: str,
 ) -> tuple[str | None, str | None]:
     dialog_lines: list[str] = []
     for item in history[-8:]:
@@ -126,7 +169,7 @@ def _call_ollama_help_api(
     conversation = "\n".join(dialog_lines) or "leer"
     prompt = (
         "Du bist der SnackHub Hilfs-Chatbot fuer ein Schulprojekt.\n"
-        "Antworte kurz, freundlich und in einfachem Deutsch.\n"
+        f"{_STYLE_CONFIG[style_key]['ollama_instruction']}\n"
         "Bleibe bei SnackHub und erklaere konkrete Funktionen.\n"
         "Antworte in maximal 3 kurzen Saetzen.\n\n"
         f"Aktuelle Route: {route or '/'}\n"
@@ -140,7 +183,7 @@ def _call_ollama_help_api(
         "prompt": prompt,
         "stream": False,
         "options": {
-            "temperature": 0.6,
+            "temperature": 0.7 if style_key == "slang" else 0.5,
         },
     }
 
@@ -178,9 +221,10 @@ def _call_ollama_help_api(
         return None, reason
 
 
-def _pick_opener(seed: str) -> str:
-    index = sum(ord(ch) for ch in seed) % len(_OPENERS)
-    return _OPENERS[index]
+def _pick_opener(style_key: str, seed: str) -> str:
+    openers = _STYLE_CONFIG[style_key]["openers"]
+    index = sum(ord(ch) for ch in seed) % len(openers)
+    return openers[index]
 
 
 def _normalize(text: str) -> str:
@@ -202,3 +246,14 @@ def _get_ollama_base_url() -> str:
     if not url:
         return "http://127.0.0.1:11434"
     return url.rstrip("/")
+
+
+def _resolve_style(style: str | None) -> str:
+    raw = (style or os.getenv("SNACKHUB_CHAT_STYLE") or "slang").strip().lower()
+    if raw in _STYLE_CONFIG:
+        return raw
+    return "slang"
+
+
+def _style_label(style_key: str) -> str:
+    return _STYLE_CONFIG.get(style_key, _STYLE_CONFIG["slang"])["label"]

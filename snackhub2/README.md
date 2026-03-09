@@ -40,3 +40,12 @@ Wichtig:
 4. App starten (`start_snackhub.ps1` oder `start_snackhub.bat`).
 
 Im Chat steht dann unten `Quelle: Ollama`, wenn die echte Ollama-API genutzt wird.
+
+### Chat-Stile
+
+Der Chatbot hat drei Modi:
+- `slang` (locker)
+- `normal` (neutral)
+- `praesentation` (formal)
+
+Du kannst den Stil direkt im Chatfenster umschalten oder in `.env` per `SNACKHUB_CHAT_STYLE` setzen.
