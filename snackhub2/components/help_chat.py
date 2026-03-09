@@ -47,7 +47,7 @@ def build_help_chat(page: ft.Page) -> ft.Control:
             )
             messages_column.controls.append(
                 ft.Container(
-                    alignment=ft.alignment.center_right if is_user else ft.alignment.center_left,
+                    alignment=ft.Alignment.CENTER_RIGHT if is_user else ft.Alignment.CENTER_LEFT,
                     content=bubble,
                 )
             )
@@ -55,7 +55,7 @@ def build_help_chat(page: ft.Page) -> ft.Control:
         if state.get("busy"):
             messages_column.controls.append(
                 ft.Container(
-                    alignment=ft.alignment.center_left,
+                    alignment=ft.Alignment.CENTER_LEFT,
                     content=ft.Text("Bot schreibt...", color="#777777", size=12),
                 )
             )
