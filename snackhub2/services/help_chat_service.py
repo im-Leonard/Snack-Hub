@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 from urllib import error, request
 
 
@@ -111,7 +112,7 @@ def get_help_reply(
     if ollama_answer:
         return f"{ollama_answer.strip()}\n\nQuelle: Ollama | Stil: {_style_label(style_key)}"
 
-    reason = ollama_error or "Ollama nicht erreichbar"
+    reason = _format_user_facing_error(ollama_error)
     return f"{local_hint}\n\nQuelle: Lokal ({reason}) | Stil: {_style_label(style_key)}"
 
 
@@ -257,3 +258,24 @@ def _resolve_style(style: str | None) -> str:
 
 def _style_label(style_key: str) -> str:
     return _STYLE_CONFIG.get(style_key, _STYLE_CONFIG["slang"])["label"]
+
+
+def _format_user_facing_error(raw_error: str | None) -> str:
+    if not raw_error:
+        return "Ollama gerade nicht erreichbar"
+
+    err = raw_error.lower()
+    has_ollama_cli = shutil.which("ollama") is not None
+
+    if "10061" in err or "connection refused" in err or "nicht erreichbar" in err:
+        if has_ollama_cli:
+            return "Ollama ist aus. Starte zuerst `ollama serve`."
+        return "Ollama ist nicht installiert. Bitte Ollama installieren und starten."
+
+    if "http 404" in err or "model" in err:
+        return "Ollama-Modell fehlt. Fuehre `ollama pull llama3.2:3b` aus."
+
+    if "http 500" in err:
+        return "Ollama hat intern einen Fehler. Bitte `ollama serve` neu starten."
+
+    return "Ollama gerade nicht erreichbar"
