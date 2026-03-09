@@ -21,3 +21,12 @@ Kantine Account:
 - Sieh die aktive Abstimmung mit Live-Ergebnissen
 - Stimme für dein Lieblingsessen ab
 - Ändere deine Stimme jederzeit
+## Start (Windows)
+
+Nutze am einfachsten einen der Starter im Projekt-Root:
+
+- `start_snackhub.ps1`
+- `start_snackhub.bat`
+
+Wichtig:
+- Starte nicht aus `snackhub2` mit `python -m snackhub2`, sonst kommt `No module named snackhub2`.
