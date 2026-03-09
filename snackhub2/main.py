@@ -4,6 +4,7 @@ from pathlib import Path
 
 import flet as ft
 
+from snackhub2.components.help_chat import build_help_chat
 from snackhub2.pages.dashboard_router import dashboard_router
 from snackhub2.pages.kantine.Voting_Kantine import voting_kantine_page
 from snackhub2.pages.kantine.feedback_overview import feedback_overview_page
@@ -151,6 +152,7 @@ def _build_bg_icons(page: ft.Page):
 
 def _decorate_view_with_animated_bg(page: ft.Page, view: ft.View) -> ft.View:
     bg_controls = _build_bg_icons(page)
+    help_chat = build_help_chat(page)
     foreground = ft.Container(
         expand=True,
         content=ft.Column(
@@ -161,7 +163,7 @@ def _decorate_view_with_animated_bg(page: ft.Page, view: ft.View) -> ft.View:
     )
     view.controls = [
         ft.Stack(
-            controls=[*bg_controls, foreground],
+            controls=[*bg_controls, foreground, help_chat],
             expand=True,
         )
     ]
