@@ -1,4 +1,7 @@
 import sys
+from pathlib import Path
+
+from snackhub2.services.env_loader import load_env_files
 
 
 def _configure_console_encoding() -> None:
@@ -12,6 +15,15 @@ def _configure_console_encoding() -> None:
 
 
 _configure_console_encoding()
+
+_project_root = Path(__file__).resolve().parents[1]
+load_env_files(
+    [
+        _project_root / ".env",
+        Path.cwd() / ".env",
+    ],
+    override=False,
+)
 
 from snackhub2.main import run_app
 

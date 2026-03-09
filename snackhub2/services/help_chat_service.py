@@ -4,7 +4,6 @@ from urllib import error, request
 
 
 _OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
-_DEFAULT_MODEL = os.getenv("SNACKHUB_HELP_MODEL", "gpt-4o-mini")
 
 _TOPIC_TEXT = {
     "voting_schueler": (
@@ -95,7 +94,7 @@ def get_help_reply(user_message: str, route: str, history: list[dict] | None = N
 
     api_answer = _call_openai_help_api(
         api_key=api_key,
-        model=_DEFAULT_MODEL,
+        model=_get_model(),
         user_message=message,
         route=route,
         local_hint=local_hint,
@@ -255,3 +254,7 @@ def _normalize(text: str) -> str:
     lowered = lowered.replace("ö", "o")
     lowered = lowered.replace("ü", "u")
     return lowered
+
+def _get_model() -> str:
+    model = (os.getenv("SNACKHUB_HELP_MODEL") or "").strip()
+    return model or "gpt-4o-mini"
