@@ -1,4 +1,3 @@
-import sys
 from snackhub2.services.db import get_conn
 
 def initialize_app():
@@ -62,4 +61,5 @@ def initialize_app():
             setup_database()
         except Exception as setup_error:
             print(f"❌ Setup fehlgeschlagen: {setup_error}")
-            sys.exit(1)
+            print("Warnung: App startet trotzdem weiter; einzelne Seiten koennen eingeschraenkt sein.")
+

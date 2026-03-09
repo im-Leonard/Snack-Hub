@@ -1,4 +1,5 @@
 import os
+import traceback
 from pathlib import Path
 
 import flet as ft
@@ -167,6 +168,41 @@ def _decorate_view_with_animated_bg(page: ft.Page, view: ft.View) -> ft.View:
     return view
 
 
+def _build_runtime_error_view(route: str, error: Exception) -> ft.View:
+    return ft.View(
+        route=route or "/",
+        bgcolor="#FFF3D2",
+        controls=[
+            ft.Column(
+                expand=True,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                alignment=ft.MainAxisAlignment.CENTER,
+                controls=[
+                    ft.Text("Interner Fehler", size=30, weight="bold", color="#B71C1C"),
+                    ft.Text(
+                        "Beim Laden der Seite ist ein Fehler aufgetreten.",
+                        size=16,
+                        color="black",
+                        text_align=ft.TextAlign.CENTER,
+                    ),
+                    ft.Container(
+                        bgcolor="#FFE8B5",
+                        border_radius=12,
+                        padding=12,
+                        width=900,
+                        content=ft.Text(str(error), color="black", selectable=True),
+                    ),
+                    ft.Text(
+                        "Bitte Seite neu laden oder erneut anmelden.",
+                        size=14,
+                        color="#555555",
+                    ),
+                ],
+            )
+        ],
+    )
+
+
 def main(page: ft.Page):
     page.title = "SnackHub"
     page.window_width = 1500
@@ -175,43 +211,54 @@ def main(page: ft.Page):
     def route_change(e):
         page.views.clear()
 
-        view = None
-        if page.route == "/":
-            view = landing_page(page)
-        elif page.route == "/schueler_landing":
-            view = schueler_landing_page(page)
-        elif page.route == "/login":
-            view = login_page(page)
-        elif page.route == "/register":
-            view = register_page(page)
-        elif page.route.startswith("/dashboard"):
-            view = dashboard_router(page)
-        elif page.route == "/shop":
-            view = shop_page(page)
-        elif page.route == "/voting":
-            view = voting_page(page)
-        elif page.route == "/voting_kantine":
-            view = voting_kantine_page(page)
-        elif page.route == "/feedback":
-            view = feedback_page(page)
-        elif page.route == "/feedback_overview":
-            view = feedback_overview_page(page)
-        elif page.route == "/menu_kantine":
-            view = menu_management_page(page)
-        elif page.route == "/voting_overview":
-            page.go("/voting_kantine")
-            return
-        elif page.route == "/kantine_landing":
-            view = kantine_landing_page(page)
-        elif page.route == "/vorbestellen":
-            view = vorbestellen_page(page)
-        elif page.route == "/vorbestellungen_kantine":
-            view = vorbestellungen_kantine_page(page)
-        else:
-            view = ft.View("/", [ft.Text("404 - Seite nicht gefunden", color="black")])
+        try:
+            view = None
+            if page.route == "/":
+                view = landing_page(page)
+            elif page.route == "/schueler_landing":
+                view = schueler_landing_page(page)
+            elif page.route == "/login":
+                view = login_page(page)
+            elif page.route == "/register":
+                view = register_page(page)
+            elif page.route.startswith("/dashboard"):
+                view = dashboard_router(page)
+            elif page.route == "/shop":
+                view = shop_page(page)
+            elif page.route == "/voting":
+                view = voting_page(page)
+            elif page.route == "/voting_kantine":
+                view = voting_kantine_page(page)
+            elif page.route == "/feedback":
+                view = feedback_page(page)
+            elif page.route == "/feedback_overview":
+                view = feedback_overview_page(page)
+            elif page.route == "/menu_kantine":
+                view = menu_management_page(page)
+            elif page.route == "/voting_overview":
+                page.go("/voting_kantine")
+                return
+            elif page.route == "/kantine_landing":
+                view = kantine_landing_page(page)
+            elif page.route == "/vorbestellen":
+                view = vorbestellen_page(page)
+            elif page.route == "/vorbestellungen_kantine":
+                view = vorbestellungen_kantine_page(page)
+            else:
+                view = ft.View("/", [ft.Text("404 - Seite nicht gefunden", color="black")])
 
-        page.views.append(_decorate_view_with_animated_bg(page, view))
-        page.update()
+            page.views.append(_decorate_view_with_animated_bg(page, view))
+        except Exception as route_error:
+            print(f"[route_error] route={page.route} error={route_error}")
+            traceback.print_exc()
+            page.views.clear()
+            page.views.append(_decorate_view_with_animated_bg(page, _build_runtime_error_view(page.route, route_error)))
+
+        try:
+            page.update()
+        except Exception as update_error:
+            print(f"[update_error] route={page.route} error={update_error}")
+            traceback.print_exc()
 
     page.on_route_change = route_change
 

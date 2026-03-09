@@ -92,8 +92,11 @@ def _student_hero_logo(page: ft.Page):
 
     async def pop():
         await asyncio.sleep(0.05)
-        hero.scale = ft.Scale(1.0)
-        page.update()
+        try:
+            hero.scale = ft.Scale(1.0)
+            page.update()
+        except Exception:
+            return
 
     page.run_task(pop)
     return hero
