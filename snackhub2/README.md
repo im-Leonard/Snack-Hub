@@ -30,3 +30,13 @@ Nutze am einfachsten einen der Starter im Projekt-Root:
 
 Wichtig:
 - Starte nicht aus `snackhub2` mit `python -m snackhub2`, sonst kommt `No module named snackhub2`.
+
+## Chatbot (Ollama)
+
+1. Ollama installieren und starten.
+2. Modell laden:
+   - `ollama pull llama3.2:3b`
+3. Im Projekt-Root `.env.example` nach `.env` kopieren.
+4. App starten (`start_snackhub.ps1` oder `start_snackhub.bat`).
+
+Im Chat steht dann unten `Quelle: Ollama`, wenn die echte Ollama-API genutzt wird.

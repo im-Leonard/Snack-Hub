@@ -3,8 +3,6 @@ import os
 from urllib import error, request
 
 
-_OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
-
 _TOPIC_TEXT = {
     "voting_schueler": "Auf Voting kannst du abstimmen und deine Stimme spaeter aendern.",
     "voting_kantine": "Die Kantine startet Abstimmungen, pflegt Gerichte und sieht Live-Ergebnisse.",
@@ -14,7 +12,7 @@ _TOPIC_TEXT = {
     "vorbestellen_schueler": "Auf Vorbestellen buchst du das Gewinnergericht aus dem letzten Voting.",
     "vorbestellungen_kantine": "Hier verwaltet die Kantine offene Vorbestellungen und Zahlstatus.",
     "menu_kantine": "In Speisekarte pflegt die Kantine Gerichte, Preise und Verfuegbarkeit.",
-    "login_register": "Login/Registrierung steuert den Einstieg fuer Schueler und Kantine-Rolle.",
+    "login_register": "Login und Registrierung steuern den Einstieg fuer Schueler und Kantine.",
     "dashboard": "Das Dashboard ist die zentrale Navigation zu allen Hauptfunktionen.",
 }
 
@@ -60,22 +58,18 @@ def get_help_reply(user_message: str, route: str, history: list[dict] | None = N
         return "Willkommen bei SnackHub, wie kann ich dir helfen?"
 
     local_hint = _build_local_help(message, route)
-    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
-    if not api_key:
-        return f"{local_hint}\n\nQuelle: Lokal (OPENAI_API_KEY fehlt)"
-
-    api_answer, api_error = _call_openai_help_api(
-        api_key=api_key,
+    ollama_answer, ollama_error = _call_ollama_help_api(
         model=_get_model(),
+        base_url=_get_ollama_base_url(),
         user_message=message,
         route=route,
         local_hint=local_hint,
         history=history or [],
     )
-    if api_answer:
-        return f"{api_answer.strip()}\n\nQuelle: OpenAI"
+    if ollama_answer:
+        return f"{ollama_answer.strip()}\n\nQuelle: Ollama"
 
-    reason = api_error or "API nicht erreichbar"
+    reason = ollama_error or "Ollama nicht erreichbar"
     return f"{local_hint}\n\nQuelle: Lokal ({reason})"
 
 
@@ -112,9 +106,9 @@ def _build_local_help(user_message: str, route: str) -> str:
     return f"{opener} {first}"
 
 
-def _call_openai_help_api(
-    api_key: str,
+def _call_ollama_help_api(
     model: str,
+    base_url: str,
     user_message: str,
     route: str,
     local_hint: str,
@@ -124,49 +118,47 @@ def _call_openai_help_api(
     for item in history[-8:]:
         if not isinstance(item, dict):
             continue
-        role = (item.get("role") or "").strip()
+        role = (item.get("role") or "").strip().lower()
         content = (item.get("content") or "").strip()
-        if role and content:
+        if role in {"user", "assistant"} and content:
             dialog_lines.append(f"{role}: {content}")
 
-    conversation = "\n".join(dialog_lines)
-    system_prompt = (
-        "Du bist der SnackHub Hilfs-Chatbot fuer ein Schulprojekt. "
-        "Antworte kurz, freundlich und in einfachem Deutsch. "
-        "Bleibe bei SnackHub und erklaere konkrete Funktionen."
-    )
-    user_prompt = (
+    conversation = "\n".join(dialog_lines) or "leer"
+    prompt = (
+        "Du bist der SnackHub Hilfs-Chatbot fuer ein Schulprojekt.\n"
+        "Antworte kurz, freundlich und in einfachem Deutsch.\n"
+        "Bleibe bei SnackHub und erklaere konkrete Funktionen.\n"
+        "Antworte in maximal 3 kurzen Saetzen.\n\n"
         f"Aktuelle Route: {route or '/'}\n"
-        f"Lokale Faktenbasis:\n{local_hint}\n\n"
-        f"Dialog:\n{conversation or 'leer'}\n\n"
-        f"Nutzerfrage:\n{user_message}\n\n"
-        "Antworte in maximal 3 kurzen Saetzen."
+        f"Lokale Faktenbasis: {local_hint}\n\n"
+        f"Dialog bisher:\n{conversation}\n\n"
+        f"Nutzerfrage: {user_message}\n"
     )
 
     payload = {
         "model": model,
-        "input": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        "max_output_tokens": 180,
-        "temperature": 0.6,
+        "prompt": prompt,
+        "stream": False,
+        "options": {
+            "temperature": 0.6,
+        },
     }
 
+    endpoint = f"{base_url}/api/generate"
     req = request.Request(
-        _OPENAI_RESPONSES_URL,
+        endpoint,
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
+        headers={"Content-Type": "application/json"},
         method="POST",
     )
 
     try:
-        with request.urlopen(req, timeout=25) as resp:
+        with request.urlopen(req, timeout=35) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-        return _extract_output_text(data), None
+        text = (data.get("response") or "").strip()
+        if text:
+            return text, None
+        return None, "Leere Ollama-Antwort"
     except error.HTTPError as http_error:
         status = f"HTTP {http_error.code}"
         body = ""
@@ -174,44 +166,16 @@ def _call_openai_help_api(
             body = http_error.read().decode("utf-8", errors="replace")
         except Exception:
             body = "<no-body>"
-        print(f"[help_chat_api_http_error] status={status} body={body[:500]}")
+        print(f"[help_chat_ollama_http_error] status={status} body={body[:500]}")
         return None, status
+    except error.URLError as url_error:
+        reason = str(getattr(url_error, "reason", "URLError"))
+        print(f"[help_chat_ollama_url_error] {reason}")
+        return None, f"Ollama nicht erreichbar: {reason}"
     except Exception as exc:
         reason = type(exc).__name__
-        print(f"[help_chat_api_error] {reason}: {exc}")
+        print(f"[help_chat_ollama_error] {reason}: {exc}")
         return None, reason
-
-
-def _extract_output_text(api_response: dict) -> str | None:
-    output_text = api_response.get("output_text")
-    if isinstance(output_text, str) and output_text.strip():
-        return output_text.strip()
-
-    if isinstance(output_text, list):
-        merged = "".join(part for part in output_text if isinstance(part, str)).strip()
-        if merged:
-            return merged
-
-    output_items = api_response.get("output")
-    if not isinstance(output_items, list):
-        return None
-
-    chunks: list[str] = []
-    for item in output_items:
-        if not isinstance(item, dict):
-            continue
-        content_parts = item.get("content")
-        if not isinstance(content_parts, list):
-            continue
-        for part in content_parts:
-            if not isinstance(part, dict):
-                continue
-            text = part.get("text")
-            if isinstance(text, str):
-                chunks.append(text)
-
-    merged_chunks = "".join(chunks).strip()
-    return merged_chunks or None
 
 
 def _pick_opener(seed: str) -> str:
@@ -225,12 +189,16 @@ def _normalize(text: str) -> str:
     lowered = lowered.replace("oe", "o")
     lowered = lowered.replace("ue", "u")
     lowered = lowered.replace("ss", "s")
-    lowered = lowered.replace("ä", "a")
-    lowered = lowered.replace("ö", "o")
-    lowered = lowered.replace("ü", "u")
     return lowered
 
 
 def _get_model() -> str:
     model = (os.getenv("SNACKHUB_HELP_MODEL") or "").strip()
-    return model or "gpt-4o-mini"
+    return model or "llama3.2:3b"
+
+
+def _get_ollama_base_url() -> str:
+    url = (os.getenv("OLLAMA_BASE_URL") or "").strip()
+    if not url:
+        return "http://127.0.0.1:11434"
+    return url.rstrip("/")
