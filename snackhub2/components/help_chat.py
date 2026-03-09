@@ -9,6 +9,12 @@ from snackhub2.services.help_chat_service import AVAILABLE_CHAT_STYLES, get_help
 def build_help_chat(page: ft.Page) -> ft.Control:
     state = _get_chat_state(page)
 
+    style_mapping = {
+        "slang": "Slang",
+        "normal": "Normal",
+        "praesentation": "Praesentation",
+    }
+
     messages_column = ft.Column(
         spacing=8,
         scroll=ft.ScrollMode.AUTO,
@@ -24,6 +30,20 @@ def build_help_chat(page: ft.Page) -> ft.Control:
         border_radius=10,
         border_color="#E0CFA0",
         text_style=ft.TextStyle(color="black"),
+    )
+    style_dropdown = ft.Dropdown(
+        label="Stil",
+        width=160,
+        value=state.get("style", "slang"),
+        bgcolor="white",
+        border_radius=10,
+        border_color="#E0CFA0",
+        dense=True,
+        text_size=12,
+        options=[
+            ft.dropdown.Option(k, style_mapping.get(k, k.title()))
+            for k in AVAILABLE_CHAT_STYLES
+        ],
     )
 
     def safe_update():
@@ -241,14 +261,15 @@ def _get_chat_state(page: ft.Page) -> dict:
             chat_state["style"] = _default_style()
         return chat_state
 
+    style = _default_style()
     chat_state = {
         "open": False,
         "busy": False,
-        "style": _default_style(),
+        "style": style,
         "history": [
             {
                 "role": "assistant",
-                "content": _initial_welcome(_default_style()),
+                "content": _initial_welcome(style),
             }
         ],
     }
@@ -277,24 +298,4 @@ def _initial_welcome(style: str) -> str:
     return (
         "Yo, willkommen bei SnackHub. "
         "Nenne z. B. 'Voting Funktionen'."
-    )
-    style_mapping = {
-        "slang": "Slang",
-        "normal": "Normal",
-        "praesentation": "Praesentation",
-    }
-
-    style_dropdown = ft.Dropdown(
-        label="Stil",
-        width=145,
-        value=state.get("style", "slang"),
-        bgcolor="white",
-        border_radius=10,
-        border_color="#E0CFA0",
-        dense=True,
-        text_size=12,
-        options=[
-            ft.dropdown.Option(k, style_mapping.get(k, k.title()))
-            for k in AVAILABLE_CHAT_STYLES
-        ],
     )

@@ -49,3 +49,11 @@ Der Chatbot hat drei Modi:
 - `praesentation` (formal)
 
 Du kannst den Stil direkt im Chatfenster umschalten oder in `.env` per `SNACKHUB_CHAT_STYLE` setzen.
+
+### Start-Modus
+
+Falls der Browser-Start Probleme macht, nutze in `.env`:
+- `SNACKHUB_VIEW=flet_app` (empfohlen, Desktop-Fenster)
+
+Optional fuer Browser:
+- `SNACKHUB_VIEW=web_browser`

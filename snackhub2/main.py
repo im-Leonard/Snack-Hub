@@ -283,14 +283,52 @@ def _get_port() -> int:
     return 0
 
 
+def _get_app_view() -> ft.AppView:
+    raw = (os.getenv("SNACKHUB_VIEW") or "web_browser").strip().lower()
+    mapping = {
+        "flet_app": ft.AppView.FLET_APP,
+        "desktop": ft.AppView.FLET_APP,
+        "web_browser": ft.AppView.WEB_BROWSER,
+        "browser": ft.AppView.WEB_BROWSER,
+        "flet_app_web": ft.AppView.FLET_APP_WEB,
+        "flet_app_hidden": ft.AppView.FLET_APP_HIDDEN,
+    }
+    return mapping.get(raw, ft.AppView.WEB_BROWSER)
+
+
+def _configure_browser_preference() -> None:
+    browser_raw = (os.getenv("SNACKHUB_BROWSER") or "").strip()
+    if not browser_raw:
+        return
+
+    if browser_raw.lower() == "brave":
+        candidates = [
+            r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+            r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
+            "brave",
+        ]
+        for candidate in candidates:
+            if candidate == "brave" or Path(candidate).exists():
+                os.environ["BROWSER"] = candidate
+                print(f"SnackHub Browser-Override: {candidate}")
+                return
+        return
+
+    os.environ["BROWSER"] = browser_raw
+    print(f"SnackHub Browser-Override: {browser_raw}")
+
+
 def run_app() -> None:
     initialize_app()
 
     port = _get_port()
+    view = _get_app_view()
+    _configure_browser_preference()
+    print(f"SnackHub startet mit App-View: {view.value}")
     ft.run(
         main,
         assets_dir=str(_assets_dir),
-        view=ft.AppView.WEB_BROWSER,
+        view=view,
         port=port,
     )
 
