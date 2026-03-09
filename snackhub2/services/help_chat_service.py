@@ -6,56 +6,25 @@ from urllib import error, request
 _OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses"
 
 _TOPIC_TEXT = {
-    "voting_schueler": (
-        "Voting (Schueler): Du siehst das aktive Essen-Voting, kannst genau eine Stimme abgeben "
-        "oder spaeter aendern. Die Prozentanzeige und Stimmenzahl aktualisieren sich ueber den "
-        "Aktualisieren-Button."
-    ),
-    "voting_kantine": (
-        "Voting (Kantine): Die Kantine kann Abstimmungen starten, Gerichte zur Umfrage hinzufuegen "
-        "und Ergebnisse live beobachten. Damit steuert ihr, welches Gericht als naechstes angeboten wird."
-    ),
-    "shop": (
-        "Shop: Schueler sehen verfuegbare Gerichte aus der Speisekarte mit Preis und Kategorie. "
-        "Die Seite dient als Uebersicht der aktuell angebotenen Produkte."
-    ),
-    "feedback_schueler": (
-        "Feedback (Schueler): Schueler geben pro Woche eine Bewertung und einen Kommentar ab, optional "
-        "anonym. Das hilft der Kantine, Angebot und Qualitaet zu verbessern."
-    ),
-    "feedback_overview": (
-        "Feedback-Uebersicht (Kantine): Die Kantine sieht eingegangene Rueckmeldungen gesammelt "
-        "und kann Trends oder wiederkehrende Probleme erkennen."
-    ),
-    "vorbestellen_schueler": (
-        "Vorbestellen (Schueler): Basierend auf dem letzten Voting-Gewinner kann ein Schueler "
-        "vorbestellen. Dadurch kann die Kantine besser planen und Lebensmittel sparen."
-    ),
-    "vorbestellungen_kantine": (
-        "Vorbestellungen (Kantine): Die Kantine sieht offene Bestellungen und kann Zahlungen "
-        "bzw. den Bearbeitungsstatus verwalten."
-    ),
-    "menu_kantine": (
-        "Speisekarte (Kantine): Hier pflegt die Kantine Gerichte, Preise, Kategorien und Verfuegbarkeit. "
-        "Aenderungen wirken sich direkt auf die Shop-Ansicht aus."
-    ),
-    "login_register": (
-        "Login/Registrierung: Nutzer melden sich mit Rolle an (Schueler oder Kantine). "
-        "Je nach Rolle landen sie in unterschiedlichen Dashboards."
-    ),
-    "dashboard": (
-        "Dashboard: Das Dashboard ist die zentrale Navigation. Schueler kommen zu Shop, Voting, "
-        "Feedback und Vorbestellung. Kantine bekommt Management-Karten fuer Betrieb und Auswertung."
-    ),
+    "voting_schueler": "Auf Voting kannst du abstimmen und deine Stimme spaeter aendern.",
+    "voting_kantine": "Die Kantine startet Abstimmungen, pflegt Gerichte und sieht Live-Ergebnisse.",
+    "shop": "Im Shop siehst du verfuegbare Gerichte mit Preis und Kategorie.",
+    "feedback_schueler": "Auf Feedback gibst du Bewertung und Kommentar, optional anonym.",
+    "feedback_overview": "Hier sieht die Kantine alle Rueckmeldungen gesammelt.",
+    "vorbestellen_schueler": "Auf Vorbestellen buchst du das Gewinnergericht aus dem letzten Voting.",
+    "vorbestellungen_kantine": "Hier verwaltet die Kantine offene Vorbestellungen und Zahlstatus.",
+    "menu_kantine": "In Speisekarte pflegt die Kantine Gerichte, Preise und Verfuegbarkeit.",
+    "login_register": "Login/Registrierung steuert den Einstieg fuer Schueler und Kantine-Rolle.",
+    "dashboard": "Das Dashboard ist die zentrale Navigation zu allen Hauptfunktionen.",
 }
 
 _TOPIC_KEYWORDS = {
     "voting_schueler": ["voting", "voiting", "abstimmung", "stimme", "stimmen"],
     "voting_kantine": ["voting kantine", "abstimmung kantine", "umfrage", "ergebnisse"],
-    "shop": ["shop", "produkte", "gerichte", "speisekarte schueler"],
+    "shop": ["shop", "produkte", "gerichte"],
     "feedback_schueler": ["feedback", "bewertung", "kommentar", "anonym"],
     "feedback_overview": ["feedback uebersicht", "feedback overview", "rueckmeldung", "auswertung"],
-    "vorbestellen_schueler": ["vorbestellen", "vorbestellung", "bestellen", "voting gewinner"],
+    "vorbestellen_schueler": ["vorbestellen", "vorbestellung", "bestellen"],
     "vorbestellungen_kantine": ["offene zahlungen", "vorbestellungen kantine", "bezahlt", "offen"],
     "menu_kantine": ["menu", "menue", "speisekarte", "preise", "kategorie"],
     "login_register": ["login", "anmelden", "registrieren", "konto", "rolle"],
@@ -78,21 +47,24 @@ _ROUTE_TOPIC = {
     "/vorbestellungen_kantine": "vorbestellungen_kantine",
 }
 
+_OPENERS = [
+    "Willkommen bei SnackHub, wie kann ich dir helfen?",
+    "Hi, wobei brauchst du in SnackHub kurz Hilfe?",
+    "Klar, ich helfe dir direkt mit SnackHub.",
+]
+
 
 def get_help_reply(user_message: str, route: str, history: list[dict] | None = None) -> str:
     message = (user_message or "").strip()
     if not message:
-        return "Schreibe bitte kurz, wobei du Hilfe brauchst, z. B. 'Funktionen Voting'."
+        return "Willkommen bei SnackHub, wie kann ich dir helfen?"
 
     local_hint = _build_local_help(message, route)
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
     if not api_key:
-        return (
-            f"{local_hint}\n\n"
-            "Hinweis: Fuer einen echten ChatGPT-Dialog bitte OPENAI_API_KEY setzen."
-        )
+        return f"{local_hint}\n\nQuelle: Lokal (OPENAI_API_KEY fehlt)"
 
-    api_answer = _call_openai_help_api(
+    api_answer, api_error = _call_openai_help_api(
         api_key=api_key,
         model=_get_model(),
         user_message=message,
@@ -101,12 +73,10 @@ def get_help_reply(user_message: str, route: str, history: list[dict] | None = N
         history=history or [],
     )
     if api_answer:
-        return api_answer
+        return f"{api_answer.strip()}\n\nQuelle: OpenAI"
 
-    return (
-        f"{local_hint}\n\n"
-        "Hinweis: Die API war gerade nicht erreichbar, daher lokale Hilfeantwort."
-    )
+    reason = api_error or "API nicht erreichbar"
+    return f"{local_hint}\n\nQuelle: Lokal ({reason})"
 
 
 def _build_local_help(user_message: str, route: str) -> str:
@@ -123,23 +93,23 @@ def _build_local_help(user_message: str, route: str) -> str:
     if not matched_topics and route_topic:
         matched_topics.append(route_topic)
 
+    opener = _pick_opener(user_message + route)
     if not matched_topics:
-        return (
-            "Ich kann dir die SnackHub-Seiten erklaeren: Voting, Shop, Feedback, "
-            "Vorbestellen, Speisekarte, Login und Dashboard. "
-            "Nenne einfach ein Stichwort wie 'Voting Funktionen'."
-        )
+        return f"{opener} Nenne einfach ein Stichwort wie 'Voting Funktionen'."
 
     unique_topics: list[str] = []
     for topic in matched_topics:
         if topic not in unique_topics:
             unique_topics.append(topic)
 
-    lines = ["Klar, hier ist die passende SnackHub-Hilfe:"]
-    for topic in unique_topics[:3]:
-        lines.append(f"- {_TOPIC_TEXT.get(topic, '')}")
+    first = _TOPIC_TEXT.get(unique_topics[0], "Ich erklaere dir gern die Funktionen.")
+    if len(unique_topics) == 1:
+        return f"{opener} {first}"
 
-    return "\n".join(lines)
+    second = _TOPIC_TEXT.get(unique_topics[1], "")
+    if second:
+        return f"{opener} {first} {second}"
+    return f"{opener} {first}"
 
 
 def _call_openai_help_api(
@@ -149,7 +119,7 @@ def _call_openai_help_api(
     route: str,
     local_hint: str,
     history: list[dict],
-) -> str | None:
+) -> tuple[str | None, str | None]:
     dialog_lines: list[str] = []
     for item in history[-8:]:
         if not isinstance(item, dict):
@@ -162,15 +132,15 @@ def _call_openai_help_api(
     conversation = "\n".join(dialog_lines)
     system_prompt = (
         "Du bist der SnackHub Hilfs-Chatbot fuer ein Schulprojekt. "
-        "Erklaere Funktionen praezise und kurz in einfachem Deutsch. "
-        "Bleibe bei SnackHub, nenne konkrete Klickpfade und gib keine erfundenen Datenbankdetails aus."
+        "Antworte kurz, freundlich und in einfachem Deutsch. "
+        "Bleibe bei SnackHub und erklaere konkrete Funktionen."
     )
     user_prompt = (
         f"Aktuelle Route: {route or '/'}\n"
         f"Lokale Faktenbasis:\n{local_hint}\n\n"
-        f"Bisheriger Dialog:\n{conversation or 'leer'}\n\n"
-        f"Neue Nutzerfrage:\n{user_message}\n\n"
-        "Antworte in 4 bis 8 Saetzen. Wenn die Frage unklar ist, frage gezielt nach."
+        f"Dialog:\n{conversation or 'leer'}\n\n"
+        f"Nutzerfrage:\n{user_message}\n\n"
+        "Antworte in maximal 3 kurzen Saetzen."
     )
 
     payload = {
@@ -179,8 +149,8 @@ def _call_openai_help_api(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        "max_output_tokens": 260,
-        "temperature": 0.2,
+        "max_output_tokens": 180,
+        "temperature": 0.6,
     }
 
     req = request.Request(
@@ -196,20 +166,20 @@ def _call_openai_help_api(
     try:
         with request.urlopen(req, timeout=25) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-        return _extract_output_text(data)
+        return _extract_output_text(data), None
     except error.HTTPError as http_error:
+        status = f"HTTP {http_error.code}"
         body = ""
         try:
             body = http_error.read().decode("utf-8", errors="replace")
         except Exception:
             body = "<no-body>"
-        print(
-            f"[help_chat_api_http_error] status={http_error.code} body={body[:500]}"
-        )
-        return None
+        print(f"[help_chat_api_http_error] status={status} body={body[:500]}")
+        return None, status
     except Exception as exc:
-        print(f"[help_chat_api_error] {exc}")
-        return None
+        reason = type(exc).__name__
+        print(f"[help_chat_api_error] {reason}: {exc}")
+        return None, reason
 
 
 def _extract_output_text(api_response: dict) -> str | None:
@@ -244,6 +214,11 @@ def _extract_output_text(api_response: dict) -> str | None:
     return merged_chunks or None
 
 
+def _pick_opener(seed: str) -> str:
+    index = sum(ord(ch) for ch in seed) % len(_OPENERS)
+    return _OPENERS[index]
+
+
 def _normalize(text: str) -> str:
     lowered = text.lower()
     lowered = lowered.replace("ae", "a")
@@ -254,6 +229,7 @@ def _normalize(text: str) -> str:
     lowered = lowered.replace("ö", "o")
     lowered = lowered.replace("ü", "u")
     return lowered
+
 
 def _get_model() -> str:
     model = (os.getenv("SNACKHUB_HELP_MODEL") or "").strip()

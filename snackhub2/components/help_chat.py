@@ -218,8 +218,8 @@ def _get_chat_state(page: ft.Page) -> dict:
             {
                 "role": "assistant",
                 "content": (
-                    "Hi! Ich bin dein SnackHub Helfer. "
-                    "Nenne ein Stichwort wie 'Voting Funktionen'."
+                    "Willkommen bei SnackHub, wie kann ich dir helfen? "
+                    "Nenne z. B. 'Voting Funktionen'."
                 ),
             }
         ],
