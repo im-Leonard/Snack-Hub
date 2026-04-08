@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
-
 :root {
   --snackhub-cream: #fff3d2;
   --snackhub-warm: #ffe8b5;
@@ -7,19 +5,21 @@
   --snackhub-deep: #d87b00;
   --snackhub-brown: #6f3d12;
   --snackhub-ink: #2b2118;
+  --snackhub-sans: "Segoe UI", "Trebuchet MS", "Verdana", sans-serif;
+  --snackhub-mono: "Cascadia Code", "Consolas", "Courier New", monospace;
 }
 
 body,
 input,
 button,
 textarea {
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-family: var(--snackhub-sans);
 }
 
 code,
 pre,
 kbd {
-  font-family: "IBM Plex Mono", "Cascadia Code", monospace;
+  font-family: var(--snackhub-mono);
 }
 
 .md-typeset h1,
@@ -130,6 +130,18 @@ kbd {
   flex-wrap: wrap;
   gap: 0.4rem;
   margin: 0.6rem 0 1rem;
+}
+
+.md-typeset .local-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 0.72rem;
+  background: linear-gradient(120deg, rgba(255, 167, 38, 0.18), rgba(216, 123, 0, 0.12));
+  border: 1px solid rgba(216, 123, 0, 0.18);
+  color: var(--snackhub-brown);
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .md-typeset .table-wrap {

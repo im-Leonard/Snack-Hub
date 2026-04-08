@@ -9,22 +9,26 @@ SnackHub ist als Python-basierte Webanwendung mit Flet im Frontend und MySQL
 als persistenter Datenhaltung aufgebaut. Die fachliche Logik ist ueber eine
 klare Trennung von Seiten, Services und Datenzugriff organisiert.
 
-```mermaid
-flowchart LR
-    A[Schueler / Kantinenpersonal] --> B[Flet Web UI]
-    B --> C[Routing in snackhub2/main.py]
-    C --> D[Page Layer]
-    D --> E[Service Layer]
-    E --> F[(MySQL Datenbank)]
-
-    D --> D1[login.py]
-    D --> D2[schueler/*.py]
-    D --> D3[kantine/*.py]
-
-    E --> E1[auth_service.py]
-    E --> E2[init_service.py]
-    E --> E3[poll_service.py]
-    E --> E4[db.py]
+```text
+Schueler / Kantinenpersonal
+        |
+        v
+    Flet Web UI
+        |
+        v
+Routing in snackhub2/main.py
+        |
+        v
+     Page Layer -----------------> login.py
+        |                          schueler/*.py
+        |                          kantine/*.py
+        v
+    Service Layer --------------> auth_service.py
+        |                          init_service.py
+        |                          poll_service.py
+        |                          db.py
+        v
+   MySQL Datenbank
 ```
 
 ## Architekturkomponenten
@@ -43,76 +47,30 @@ flowchart LR
 Die Datenbank `schul_kantine` bildet sowohl Benutzer- und Menudaten als auch
 Voting-, Vorbestell- und Feedbackprozesse ab.
 
-```mermaid
-erDiagram
-    USERS ||--o{ POLL_VOTES : stimmt_ab
-    USERS ||--o{ PREORDERS : bestellt
-    USERS ||--o{ WEEKLY_FEEDBACK : schreibt
-    USERS ||--o{ VOTES : legacy_vote
-    USERS ||--o{ FEEDBACK : legacy_feedback
-    USERS ||--o{ ORDERS : legacy_order
+### Zentrale Beziehungen
 
-    MEALS ||--o{ VOTES : wird_gewaehlt
-    MEALS ||--o{ FEEDBACK : wird_bewertet
-    MEALS ||--o{ ORDERS : wird_bestellt
+| Von | Beziehung | Zu |
+| --- | --- | --- |
+| `USERS` | stimmt ab in | `POLL_VOTES` |
+| `USERS` | bestellt in | `PREORDERS` |
+| `USERS` | schreibt | `WEEKLY_FEEDBACK` |
+| `MEALS` | wird historisch referenziert von | `VOTES`, `FEEDBACK`, `ORDERS` |
+| `POLLS` | enthaelt | `POLL_DISHES` |
+| `POLLS` | sammelt | `POLL_VOTES` |
+| `POLLS` | erzeugt | `PREORDERS` |
+| `POLL_DISHES` | erhaelt Stimmen ueber | `POLL_VOTES` |
 
-    POLLS ||--o{ POLL_DISHES : enthaelt
-    POLLS ||--o{ POLL_VOTES : sammelt
-    POLLS ||--o{ PREORDERS : erzeugt
+### Kernentitaeten
 
-    POLL_DISHES ||--o{ POLL_VOTES : erhaelt
-
-    USERS {
-      int id PK
-      string username
-      string password_hash
-      string role
-    }
-    MEALS {
-      int id PK
-      string name
-      string description
-      decimal price
-      string category
-      bool available
-    }
-    POLLS {
-      int poll_id PK
-      int meal_id
-      timestamp start_date
-      timestamp end_date
-    }
-    POLL_DISHES {
-      int id PK
-      int poll_id FK
-      string dish_name
-      int dish_order
-      int votes
-    }
-    POLL_VOTES {
-      int id PK
-      int poll_id FK
-      int dish_id FK
-      int user_id FK
-    }
-    PREORDERS {
-      int id PK
-      int poll_id FK
-      int user_id FK
-      string dish_name
-      string status
-      timestamp paid_confirmed_at
-    }
-    WEEKLY_FEEDBACK {
-      int id PK
-      int user_id FK
-      string week_key
-      int rating
-      string comment
-      bool is_anonymous
-      bool is_done
-    }
-```
+| Tabelle | Wichtige Felder |
+| --- | --- |
+| `USERS` | `id`, `username`, `password_hash`, `role` |
+| `MEALS` | `id`, `name`, `description`, `price`, `category`, `available` |
+| `POLLS` | `poll_id`, `meal_id`, `start_date`, `end_date` |
+| `POLL_DISHES` | `id`, `poll_id`, `dish_name`, `dish_order`, `votes` |
+| `POLL_VOTES` | `id`, `poll_id`, `dish_id`, `user_id` |
+| `PREORDERS` | `id`, `poll_id`, `user_id`, `dish_name`, `status`, `paid_confirmed_at` |
+| `WEEKLY_FEEDBACK` | `id`, `user_id`, `week_key`, `rating`, `comment`, `is_anonymous`, `is_done` |
 
 ## Kernklassen und Kernfunktionen
 
@@ -122,7 +80,7 @@ erDiagram
 | --- | --- |
 | `AuthService.hash_password()` | Hashing neuer Passwoerter mit `bcrypt` |
 | `AuthService.check_password()` | Verifikation gespeicherter Passwort-Hashes |
-| `AuthService.login_user()` | Login anhand Username + Passwort, Rueckgabe eines Domainenobjekts |
+| `AuthService.login_user()` | Login anhand Username + Passwort, Rueckgabe eines Domain-Objekts |
 | `AuthService.register_user()` | Anlegen neuer Nutzer mit Rollenpruefung |
 
 ### Datenbank und Initialisierung
@@ -130,7 +88,7 @@ erDiagram
 | Element | Aufgabe |
 | --- | --- |
 | `get_conn()` | Zugriff auf den MySQL-Connection-Pool |
-| `initialize_app()` | Vorabpruefung, ob alle benoetigten Tabellen/Spalten vorhanden sind |
+| `initialize_app()` | Vorabpruefung, ob alle benoetigten Tabellen und Spalten vorhanden sind |
 | `setup_database()` | Vollstaendiger Setup-Lauf fuer Schema und Testdaten |
 
 ### Fachlogik
@@ -138,7 +96,7 @@ erDiagram
 | Bereich | Beschreibung |
 | --- | --- |
 | Voting | Erstellen, Anzeigen, Auswerten und Beenden von Abstimmungen |
-| Menuverwaltung | Pflege sichtbarer Artikel fuer den Schueler-Shop |
+| Menueverwaltung | Pflege sichtbarer Artikel fuer den Schueler-Shop |
 | Vorbestellung | Ueberfuehrung von Poll-Ergebnissen in Bestellvorgaenge |
 | Feedback | Woechentliche Rueckmeldungen zur Angebotsqualitaet |
 
